@@ -1,0 +1,35 @@
+graph TD
+    subgraph A[階段一: 即時監控與事件觸發 (detect_event1.py)]
+        A1[Start: 啟動即時偵測] --> A2(初始化相機/GPS/YOLO);
+        A2 --> A3{迴圈: 讀取相機新幀};
+        A3 --> A4(執行物件偵測);
+        A4 --> A5{是否觸發違規事件?<br>(Motor + NoHelmet)};
+
+        A5 -- No --> A3;
+        A5 -- Yes --> A6[儲存違規快照: <br>~/violations/*.jpg];
+        A6 --> A7[儲存時間地點: <br>~/violations/*.txt];
+        A7 --> A8[End: 偵測程式結束];
+    end
+
+    subgraph B[階段二: 離線車牌識別 (plate_ocr_onnx_gated_by_rg.py)]
+        A8 --> B1[Start: 啟動車牌識別程式];
+        B1 --> B2{遍歷 ~/violations/*.jpg};
+        B2 --> B3(車牌偵測 & 矯正);
+        B3 --> B4(OCR 識別與結果投票);
+        B4 --> B5[儲存車牌文字: <br>~/violations_ocr/*.txt];
+        B5 --> B6{是否所有照片皆已處理?};
+        B6 -- No --> B2;
+        B6 -- Yes --> B7[End: 車牌識別結束];
+    end
+
+    subgraph C[階段三: 數據匯出與傳輸 (export_and_send_excel_with_image.py)]
+        B7 --> C1[Start: 啟動匯出程式];
+        C1 --> C2{遍歷 ~/violations/*.jpg};
+        C2 --> C3(讀取 jpg/plate.txt/loc.txt);
+        C3 --> C4[生成 Excel 報表 (含圖/車牌/地點)];
+        C4 --> C5[打包為 ZIP 檔案];
+        C5 --> C6[透過 Gmail 寄出 ZIP 附件];
+        C6 --> C7{是否所有 ZIP 皆已寄出?};
+        C7 -- No --> C2;
+        C7 -- Yes --> C8[End: 專案流程完全結束];
+    end
